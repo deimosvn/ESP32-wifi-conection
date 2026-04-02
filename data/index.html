@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 Portal</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px 10px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .logo { font-size: 40px; }
+        h1 {
+            font-size: 22px;
+            background: linear-gradient(90deg, #00d2ff, #3a7bd5);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .subtitle {
+            font-size: 13px;
+            color: #aaa;
+            margin-top: 4px;
+        }
+        .dot {
+            display: inline-block;
+            background: #00c853;
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            margin-right: 4px;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+        .stats-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+        .stat {
+            flex: 1;
+            min-width: 70px;
+            background: rgba(255,255,255,0.06);
+            border-radius: 12px;
+            padding: 12px 6px;
+            text-align: center;
+        }
+        .stat .v { font-size: 18px; font-weight: bold; color: #00d2ff; }
+        .stat .l { font-size: 10px; color: #777; margin-top: 3px; }
+
+        .section {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 14px;
+            padding: 16px;
+            margin-bottom: 14px;
+        }
+        .section h2 {
+            font-size: 13px;
+            color: #00d2ff;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            font-size: 13px;
+        }
+        .row:last-child { border-bottom: none; }
+        .row .k { color: #888; }
+        .row .v { color: #ddd; font-weight: 500; text-align: right; max-width: 60%; word-break: break-all; }
+
+        .client-card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            padding: 14px;
+            margin-bottom: 10px;
+        }
+        .client-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .client-header .name {
+            font-size: 15px;
+            font-weight: 600;
+            color: #fff;
+        }
+        .client-header .badge {
+            background: rgba(0,210,255,0.15);
+            color: #00d2ff;
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 8px;
+        }
+        .rssi-bar {
+            height: 4px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+            margin: 6px 0;
+            overflow: hidden;
+        }
+        .rssi-bar .fill {
+            height: 100%;
+            border-radius: 2px;
+            transition: width 0.5s;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 16px;
+        }
+        .tab {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 10px;
+            font-size: 13px;
+            color: #888;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+        .tab.active, .tab:hover {
+            background: rgba(0,210,255,0.1);
+            border-color: #00d2ff;
+            color: #00d2ff;
+        }
+
+        .loading { text-align: center; color: #555; padding: 20px; }
+        .tag {
+            display: inline-block;
+            background: rgba(255,255,255,0.08);
+            padding: 2px 7px;
+            border-radius: 6px;
+            font-size: 11px;
+            margin: 2px;
+            color: #aaa;
+        }
+        .footer {
+            text-align: center;
+            font-size: 10px;
+            color: #444;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">&#9889;</div>
+        <h1>ESP32 Captive Portal</h1>
+        <p class="subtitle"><span class="dot"></span> Sistema activo</p>
+    </div>
+
+    <div class="stats-row">
+        <div class="stat"><div class="v" id="s_uptime">-</div><div class="l">Uptime</div></div>
+        <div class="stat"><div class="v" id="s_heap">-</div><div class="l">RAM</div></div>
+        <div class="stat"><div class="v" id="s_clients">-</div><div class="l">Clientes AP</div></div>
+        <div class="stat"><div class="v" id="s_netdev">-</div><div class="l">Disp. Red</div></div>
+        <div class="stat"><div class="v" id="s_temp">-</div><div class="l">Temp</div></div>
+    </div>
+
+    <div id="wifiStatus" class="section" style="display:none">
+        <h2>&#128246; WiFi Hogar</h2>
+        <div class="row"><span class="k">Red</span><span class="v" id="w_ssid">-</span></div>
+        <div class="row"><span class="k">Estado</span><span class="v" id="w_status">-</span></div>
+        <div class="row"><span class="k">IP Local</span><span class="v" id="w_ip">-</span></div>
+        <div class="row"><span class="k">RSSI</span><span class="v" id="w_rssi">-</span></div>
+    </div>
+
+    <div class="tabs">
+        <a class="tab active" href="/">Dashboard</a>
+        <a class="tab" href="/info">ESP32 Info</a>
+    </div>
+
+    <div class="section">
+        <h2>&#128241; Tu Dispositivo</h2>
+        <div id="myDevice"><div class="loading">Escaneando...</div></div>
+    </div>
+
+    <div class="section">
+        <h2>&#128225; Clientes Conectados al AP</h2>
+        <div id="clientList"><div class="loading">Cargando...</div></div>
+    </div>
+
+    <div class="section">
+        <h2 style="justify-content:space-between">
+            <span>&#127760; Dispositivos en tu Red</span>
+            <button id="scanBtn" onclick="triggerScan()" style="background:rgba(0,210,255,0.15);color:#00d2ff;border:1px solid rgba(0,210,255,0.3);border-radius:8px;padding:5px 12px;font-size:11px;cursor:pointer">Escanear</button>
+        </h2>
+        <div id="netList"><div class="loading">Esperando escaneo...</div></div>
+    </div>
+
+    <p class="footer">ESP32 Captive Portal Demo</p>
+
+    <script>
+    async function scanMyDevice() {
+        const d = {};
+        d['User Agent'] = navigator.userAgent || 'N/A';
+        d['Plataforma'] = navigator.platform || 'N/A';
+        d['Idioma'] = navigator.language || 'N/A';
+        d['Idiomas'] = (navigator.languages || []).join(', ') || 'N/A';
+        d['Cookies'] = navigator.cookieEnabled ? 'Si' : 'No';
+        d['Do Not Track'] = navigator.doNotTrack || 'No definido';
+        d['Online'] = navigator.onLine ? 'Si' : 'No';
+        d['CPU Cores'] = navigator.hardwareConcurrency || 'N/A';
+        d['RAM aprox'] = navigator.deviceMemory ? navigator.deviceMemory + ' GB' : 'N/A';
+        d['Max Touch Points'] = navigator.maxTouchPoints || '0';
+        d['Vendor'] = navigator.vendor || 'N/A';
+        d['Pantalla'] = screen.width + ' x ' + screen.height;
+        d['Pantalla disponible'] = screen.availWidth + ' x ' + screen.availHeight;
+        d['Color Depth'] = screen.colorDepth + ' bits';
+        d['Pixel Ratio'] = window.devicePixelRatio || 1;
+        d['Orientacion'] = screen.orientation ? screen.orientation.type : 'N/A';
+        d['Viewport'] = window.innerWidth + ' x ' + window.innerHeight;
+        if (navigator.connection) {
+            const c = navigator.connection;
+            d['Tipo conexion'] = c.effectiveType || 'N/A';
+            d['Downlink'] = c.downlink ? c.downlink + ' Mbps' : 'N/A';
+            d['RTT'] = c.rtt ? c.rtt + ' ms' : 'N/A';
+            d['Save Data'] = c.saveData ? 'Si' : 'No';
+        }
+        try {
+            if (navigator.getBattery) {
+                const bat = await navigator.getBattery();
+                d['Bateria'] = Math.round(bat.level * 100) + '%';
+                d['Cargando'] = bat.charging ? 'Si' : 'No';
+                if (bat.chargingTime !== Infinity && bat.chargingTime > 0)
+                    d['Tiempo carga'] = Math.round(bat.chargingTime / 60) + ' min';
+                if (bat.dischargingTime !== Infinity && bat.dischargingTime > 0)
+                    d['Tiempo descarga'] = Math.round(bat.dischargingTime / 60) + ' min';
+            }
+        } catch(e) {}
+        try {
+            const canvas = document.createElement('canvas');
+            const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+            if (gl) {
+                const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+                if (dbg) {
+                    d['GPU Vendor'] = gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL);
+                    d['GPU Renderer'] = gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL);
+                }
+                d['WebGL Version'] = gl.getParameter(gl.VERSION);
+                d['Max Texture'] = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+            }
+        } catch(e) {}
+        try {
+            if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+                const devs = await navigator.mediaDevices.enumerateDevices();
+                d['Microfonos'] = devs.filter(x => x.kind === 'audioinput').length;
+                d['Altavoces'] = devs.filter(x => x.kind === 'audiooutput').length;
+                d['Camaras'] = devs.filter(x => x.kind === 'videoinput').length;
+            }
+        } catch(e) {}
+        d['Zona horaria'] = Intl.DateTimeFormat().resolvedOptions().timeZone || 'N/A';
+        d['UTC Offset'] = 'UTC' + (new Date().getTimezoneOffset() > 0 ? '-' : '+') + Math.abs(new Date().getTimezoneOffset() / 60);
+        d['Hora local'] = new Date().toLocaleString();
+        try {
+            if (navigator.storage && navigator.storage.estimate) {
+                const est = await navigator.storage.estimate();
+                d['Storage total'] = Math.round((est.quota || 0) / 1024 / 1024) + ' MB';
+                d['Storage usado'] = Math.round((est.usage || 0) / 1024) + ' KB';
+            }
+        } catch(e) {}
+        d['Bluetooth'] = navigator.bluetooth ? 'Si' : 'No';
+        d['USB API'] = navigator.usb ? 'Si' : 'No';
+        d['NFC'] = 'NDEFReader' in window ? 'Si' : 'No';
+        d['Vibracion'] = 'vibrate' in navigator ? 'Si' : 'No';
+        d['Speech'] = 'speechSynthesis' in window ? 'Si' : 'No';
+        d['Geolocation'] = 'geolocation' in navigator ? 'Si' : 'No';
+        d['Notificaciones'] = 'Notification' in window ? 'Si' : 'No';
+        d['WebRTC'] = 'RTCPeerConnection' in window ? 'Si' : 'No';
+        d['PDF Viewer'] = navigator.pdfViewerEnabled !== undefined ? (navigator.pdfViewerEnabled ? 'Si' : 'No') : 'N/A';
+        try {
+            const canvas = document.createElement('canvas');
+            canvas.width = 200; canvas.height = 50;
+            const ctx = canvas.getContext('2d');
+            ctx.textBaseline = 'top';
+            ctx.font = '14px Arial';
+            ctx.fillStyle = '#f60';
+            ctx.fillRect(0, 0, 200, 50);
+            ctx.fillStyle = '#069';
+            ctx.fillText('ESP32 FP', 2, 2);
+            const url = canvas.toDataURL();
+            let hash = 0;
+            for (let i = 0; i < url.length; i++) { hash = ((hash << 5) - hash) + url.charCodeAt(i); hash |= 0; }
+            d['Canvas Hash'] = Math.abs(hash).toString(16).toUpperCase();
+        } catch(e) {}
+
+        const cats = {
+            'Dispositivo': ['User Agent','Plataforma','Vendor','CPU Cores','RAM aprox','Max Touch Points','GPU Vendor','GPU Renderer'],
+            'Pantalla': ['Pantalla','Pantalla disponible','Color Depth','Pixel Ratio','Orientacion','Viewport'],
+            'Red': ['Online','Tipo conexion','Downlink','RTT','Save Data'],
+            'Bateria': ['Bateria','Cargando','Tiempo carga','Tiempo descarga'],
+            'Multimedia': ['Microfonos','Altavoces','Camaras'],
+            'Localizacion': ['Idioma','Idiomas','Zona horaria','UTC Offset','Hora local'],
+            'APIs': ['Bluetooth','USB API','NFC','Vibracion','Speech','Geolocation','Notificaciones','WebRTC','PDF Viewer'],
+            'WebGL': ['WebGL Version','Max Texture'],
+            'Storage': ['Cookies','Storage total','Storage usado'],
+            'Fingerprint': ['Canvas Hash','Do Not Track']
+        };
+        let html = '';
+        for (const [cat, keys] of Object.entries(cats)) {
+            let rows = '';
+            for (const k of keys) {
+                if (d[k] !== undefined && d[k] !== 'N/A' && d[k] !== '')
+                    rows += '<div class="row"><span class="k">' + k + '</span><span class="v">' + d[k] + '</span></div>';
+            }
+            if (rows) html += '<div style="margin-top:10px"><div style="font-size:11px;color:#00d2ff;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">' + cat + '</div>' + rows + '</div>';
+        }
+        document.getElementById('myDevice').innerHTML = html;
+        try { await fetch('/api/clientdata', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(d) }); } catch(e) {}
+    }
+
+    async function loadClients() {
+        try {
+            const res = await fetch('/api/clients');
+            const clients = await res.json();
+            if (clients.length === 0) { document.getElementById('clientList').innerHTML = '<div class="loading">Sin clientes</div>'; return; }
+            let html = '';
+            for (const c of clients) {
+                const pct = Math.min(100, Math.max(0, 2 * (c.rssi + 100)));
+                const col = pct > 60 ? '#00c853' : pct > 30 ? '#ffc107' : '#f44336';
+                html += '<div class="client-card">';
+                html += '<div class="client-header"><span class="name">' + (c.vendor !== 'Desconocido' ? c.vendor + ' ' : '') + c.deviceType + '</span><span class="badge">' + c.rssi + ' dBm</span></div>';
+                html += '<div class="rssi-bar"><div class="fill" style="width:' + pct + '%;background:' + col + '"></div></div>';
+                html += '<div style="margin:6px 0">';
+                if (c.os && c.os !== 'Desconocido') html += '<span class="tag">' + c.os + '</span>';
+                if (c.browser && c.browser !== 'Desconocido') html += '<span class="tag">' + c.browser + '</span>';
+                if (c.distance) html += '<span class="tag">~' + c.distance + '</span>';
+                if (c.model) html += '<span class="tag">' + c.model + '</span>';
+                html += '</div>';
+                html += '<div class="row"><span class="k">IP</span><span class="v">' + c.ip + '</span></div>';
+                html += '<div class="row"><span class="k">MAC</span><span class="v">' + c.mac + '</span></div>';
+                html += '<div class="row"><span class="k">Fabricante</span><span class="v">' + c.vendor + '</span></div>';
+                if (c.lang) html += '<div class="row"><span class="k">Idioma</span><span class="v">' + c.lang.substring(0,30) + '</span></div>';
+                html += '<div class="row"><span class="k">Conectado</span><span class="v">' + c.connectedFor + '</span></div>';
+                if (c.userAgent) html += '<div style="margin-top:6px;font-size:10px;color:#555;word-break:break-all">' + c.userAgent.substring(0,200) + '</div>';
+                html += '</div>';
+            }
+            document.getElementById('clientList').innerHTML = html;
+        } catch(e) { document.getElementById('clientList').innerHTML = '<div class="loading">Error</div>'; }
+    }
+
+    async function loadStats() {
+        try {
+            const res = await fetch('/api/stats');
+            const s = await res.json();
+            document.getElementById('s_uptime').textContent = s.uptime;
+            document.getElementById('s_heap').textContent = s.freeHeap;
+            document.getElementById('s_clients').textContent = s.clients;
+            document.getElementById('s_temp').textContent = s.chipTemp;
+            document.getElementById('s_netdev').textContent = s.netDevices || '0';
+            const ws = document.getElementById('wifiStatus');
+            document.getElementById('w_ssid').textContent = s.wifiSSID || '-';
+            if (s.wifiConnected) {
+                ws.style.display = '';
+                document.getElementById('w_status').innerHTML = '<span style="color:#00c853">Conectado</span>';
+                document.getElementById('w_ip').textContent = s.wifiIP;
+                document.getElementById('w_rssi').textContent = s.wifiRSSI + ' dBm (Ch ' + s.wifiChannel + ')';
+            } else {
+                ws.style.display = '';
+                document.getElementById('w_status').innerHTML = '<span style="color:#f44336">Desconectado</span>';
+                document.getElementById('w_ip').textContent = '-';
+                document.getElementById('w_rssi').textContent = '-';
+            }
+        } catch(e) {}
+    }
+
+    async function loadNetwork() {
+        try {
+            const res = await fetch('/api/network');
+            const data = await res.json();
+            if (!data.connected) {
+                document.getElementById('netList').innerHTML = '<div class="loading">WiFi no conectado</div>';
+                return;
+            }
+            if (data.scanning) {
+                document.getElementById('scanBtn').textContent = 'Escaneando...';
+                document.getElementById('scanBtn').disabled = true;
+            } else {
+                document.getElementById('scanBtn').textContent = 'Escanear';
+                document.getElementById('scanBtn').disabled = false;
+            }
+            const devs = data.devices || [];
+            if (devs.length === 0) {
+                document.getElementById('netList').innerHTML = '<div class="loading">Sin dispositivos encontrados</div>';
+                return;
+            }
+            let html = '';
+            for (const d of devs) {
+                html += '<div class="client-card">';
+                html += '<div class="client-header">';
+                html += '<span class="name">' + (d.role ? d.role : (d.vendor !== 'Desconocido' ? d.vendor : 'Dispositivo')) + '</span>';
+                if (d.role) html += '<span class="badge" style="background:rgba(255,193,7,0.15);color:#ffc107">' + d.vendor + '</span>';
+                else html += '<span class="badge">' + d.vendor + '</span>';
+                html += '</div>';
+                html += '<div class="row"><span class="k">IP</span><span class="v">' + d.ip + '</span></div>';
+                html += '<div class="row"><span class="k">MAC</span><span class="v">' + d.mac + '</span></div>';
+                if (d.role) html += '<div class="row"><span class="k">Rol</span><span class="v">' + d.role + '</span></div>';
+                html += '<div class="row"><span class="k">Visto</span><span class="v">' + d.lastSeen + '</span></div>';
+                html += '</div>';
+            }
+            document.getElementById('netList').innerHTML = html;
+        } catch(e) {
+            document.getElementById('netList').innerHTML = '<div class="loading">Error</div>';
+        }
+    }
+
+    async function triggerScan() {
+        document.getElementById('scanBtn').textContent = 'Escaneando...';
+        document.getElementById('scanBtn').disabled = true;
+        try { await fetch('/api/scan'); } catch(e) {}
+        setTimeout(loadNetwork, 3000);
+    }
+
+    scanMyDevice();
+    loadClients();
+    loadStats();
+    loadNetwork();
+    setInterval(loadClients, 5000);
+    setInterval(loadStats, 5000);
+    setInterval(loadNetwork, 8000);
+    </script>
+</body>
+</html>
