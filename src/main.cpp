@@ -10,7 +10,7 @@
 
 // --- Configuracion de la red AP (portal) ---
 const char *AP_SSID = "ESP32-Portal";
-const char *AP_PASS = NULL; // Red abierta
+const char *AP_PASS = ""; // Red abierta (string vacio, no NULL)
 
 // --- Configuracion de tu red WiFi (STA) ---
 const char *STA_SSID = "MARTINEZ CRUZ";
@@ -474,15 +474,7 @@ void setup() {
     // Modo STA+AP: se conecta a tu WiFi Y crea su propia red
     WiFi.mode(WIFI_AP_STA);
 
-    // Iniciar AP
-    WiFi.softAP(AP_SSID, AP_PASS, 1, 0, MAX_CLIENTS);
-    delay(100);
-    Serial.print("AP IP: ");
-    Serial.println(WiFi.softAPIP());
-    Serial.print("AP SSID: ");
-    Serial.println(AP_SSID);
-
-    // Conectar a tu red WiFi
+    // Primero conectar a tu red WiFi para saber el canal
     Serial.print("Conectando a ");
     Serial.print(STA_SSID);
     WiFi.begin(STA_SSID, STA_PASS);
@@ -494,19 +486,44 @@ void setup() {
         attempts++;
     }
 
+    // Determinar canal para el AP (debe coincidir con STA en modo dual)
+    int apChannel = 1;
     if (WiFi.status() == WL_CONNECTED) {
+        apChannel = WiFi.channel();
         Serial.println("\nConectado a " + String(STA_SSID));
         Serial.print("STA IP: ");
         Serial.println(WiFi.localIP());
         Serial.print("Gateway: ");
         Serial.println(WiFi.gatewayIP());
-        Serial.print("RSSI: ");
-        Serial.println(WiFi.RSSI());
+        Serial.print("Canal: ");
+        Serial.println(apChannel);
     } else {
         Serial.println("\nNo se pudo conectar a " + String(STA_SSID));
     }
 
-    IPAddress apIP = WiFi.softAPIP();
+    // Configurar IP fija del AP
+    IPAddress apIP(192, 168, 4, 1);
+    IPAddress apGateway(192, 168, 4, 1);
+    IPAddress apSubnet(255, 255, 255, 0);
+    WiFi.softAPConfig(apIP, apGateway, apSubnet);
+
+    // Iniciar AP en el mismo canal que la red WiFi (evita conflicto)
+    WiFi.softAP(AP_SSID, AP_PASS, apChannel, 0, MAX_CLIENTS);
+    delay(200);
+
+    // Forzar modo autenticacion abierta explicitamente
+    wifi_config_t apConfig;
+    esp_wifi_get_config(WIFI_IF_AP, &apConfig);
+    apConfig.ap.authmode = WIFI_AUTH_OPEN;
+    apConfig.ap.pairwise_cipher = WIFI_CIPHER_TYPE_NONE;
+    esp_wifi_set_config(WIFI_IF_AP, &apConfig);
+
+    Serial.print("AP SSID: ");
+    Serial.println(AP_SSID);
+    Serial.print("AP IP: ");
+    Serial.println(WiFi.softAPIP());
+    Serial.print("AP Canal: ");
+    Serial.println(apChannel);
 
     // DNS server - redirige todo a nuestra IP (solo para el AP)
     dnsServer.start(53, "*", apIP);
